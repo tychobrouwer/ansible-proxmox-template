@@ -68,7 +68,7 @@ Here’s an example Ansible playbook demonstrating how to use this role:
 
 ## Usage Notes
 
-- **Custom Configuration**: 
+- **Custom Configuration**:
   - Create a `vendor.yaml.j2` file to customize the cloud-init configuration for the VM.
   
   ```yaml
