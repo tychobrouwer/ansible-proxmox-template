@@ -1,0 +1,17 @@
+---
+# vars file for traefik
+proxmox_template_url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+proxmox_template_name: noble-server-cloudimg-amd64
+proxmox_template_disk_size: 8G
+proxmox_template_vm_id: 9000
+proxmox_template_vendor_template: templates/vendor.yaml.j2
+proxmox_template_ciuser: root
+proxmox_template_cipassword: root
+
+proxmox_template_os_type: l26
+proxmox_template_bios: ovmf
+proxmox_template_machine: q35
+proxmox_template_efidisk0: local-zfs:0,pre-enrolled-keys=0
+proxmox_template_net0: virtio,bridge=vmbr0
+proxmox_template_agent: true
+proxmox_template_disk_location: local-zfs

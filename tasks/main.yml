@@ -1,0 +1,88 @@
+---
+# tasks file for proxmox-template
+- name: Get the cloud image template
+  ansible.builtin.get_url:
+    url: "{{ proxmox_template_url }}"
+    dest: "/var/lib/vz/template/cache/{{ proxmox_template_name }}.img"
+    mode: 0644
+    owner: root
+    group: root
+    timeout: 300
+
+- name: Resize the cloud image template
+  ansible.builtin.command:
+    cmd: "qemu-img resize /var/lib/vz/template/cache/{{ proxmox_template_name }}.img +{{ proxmox_template_disk_size }}"
+  changed_when: false
+
+- name: Create the template VM
+  ansible.builtin.command:
+    cmd: |
+      qm create {{ proxmox_template_vm_id }} \
+      --name {{ proxmox_template_name }} \
+      --ostype {{ proxmox_template_os_type }} \
+      --memory 1024 \
+      --agent {{ '1' if proxmox_template_agent else '0' }} \
+      --bios {{ proxmox_template_bios }} \
+      --machine {{ proxmox_template_machine }} \
+      {{ '--efidisk0 ' ~ proxmox_template_efidisk0 if proxmox_template_efidisk0 is undefined }} \
+      --cpu host \
+      --sockets 1 \
+      --cores 1 \
+      --vga serial0 --serial0 socket \
+      --net0 {{ proxmox_template_net0 }} \
+ 
+- name: Import the cloud image template
+  ansible.builtin.command:
+    cmd: "qm importdisk {{ proxmox_template_vm_id }} /var/lib/vz/template/cache/{{ proxmox_template_name }}.img {{ proxmox_template_disk_location }}"
+  changed_when: false
+
+- name: Configure VM boot options and disks
+  ansible.builtin.command:
+    cmd: |
+      qm set {{ proxmox_template_vm_id }} --scsihw virtio-scsi-pci --scsi0 {{ proxmox_template_disk_location }}:vm-{{ proxmox_template_vm_id }}-disk-1,discard=on
+      qm set {{ proxmox_template_vm_id }} --boot order=virtio0
+      qm set {{ proxmox_template_vm_id }} --scsi1 local-zfs:cloudinit
+  changed_when: false
+
+- name: Create vendor.yaml for cloudinit from template
+  ansible.builtin.template:
+    src: "{{ proxmox_template_vendor_template }}"
+    dest: /var/lib/vz/snippets/vendor-{{ proxmox_template_vm_id }}.yaml
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Set the cloudinit vendor data
+  ansible.builtin.command:
+    cmd: "qm set {{ proxmox_template_vm_id }} --cicustom 'vendor=local:snippets/vendor-{{ proxmox_template_vm_id }}.yaml'"
+  changed_when: false
+
+- name: Add tags to the VM
+  ansible.builtin.command:
+    cmd: "qm set {{ proxmox_template_vm_id }} --tags {{ proxmox_template_name }},cloudinit"
+  changed_when: false
+
+- name: Set ciuser
+  ansible.builtin.command:
+    cmd: "qm set {{ proxmox_template_vm_id }} --ciuser {{ proxmox_template_ciuser }}"
+  changed_when: false
+
+- name: Set cipassword
+  ansible.builtin.command:
+    cmd: "qm set {{ proxmox_template_vm_id }} --cipassword {{ proxmox_template_cipassword }}"
+  changed_when: false
+
+- name: Set ssh keys
+  ansible.builtin.command:
+    cmd: "qm set {{ proxmox_template_vm_id }} --sshkeys /root/.ssh/authorized_keys"
+  changed_when: false
+
+- name: Set ipconfig0
+  ansible.builtin.command:
+    cmd: "qm set {{ proxmox_template_vm_id }} --ipconfig0 ip=dhcp"
+  changed_when: false
+
+- name: Convert the VM to a template
+  ansible.builtin.command:
+    cmd: "qm template {{ proxmox_template_vm_id }}"
+  changed_when: false
